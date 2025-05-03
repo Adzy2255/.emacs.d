@@ -1,0 +1,21 @@
+;;; -*- lexical-binding: t -*-
+(custom-set-variables
+ ;; custom-set-variables was added by Custom.
+ ;; If you edit it by hand, you could mess it up, so be careful.
+ ;; Your init file should contain only one such instance.
+ ;; If there is more than one, they won't work right.
+ '(package-selected-packages
+   '(all-the-icons beacon calfw calfw-org company copilot
+		   counsel-projectile doom-modeline doom-themes
+		   elegant-agenda-mode ellama embark-consult
+		   evil-collection evil-visual-mark-mode exwm
+		   ivy-file-preview ivy-prescient llama-cpp magit
+		   magit-popup marginalia move-dup multiple-cursors
+		   orderless org-modern org-roam rainbow-delimiters
+		   vertico vterm)))
+(custom-set-faces
+ ;; custom-set-faces was added by Custom.
+ ;; If you edit it by hand, you could mess it up, so be careful.
+ ;; Your init file should contain only one such instance.
+ ;; If there is more than one, they won't work right.
+ )
