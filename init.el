@@ -286,9 +286,63 @@
   (setq org-directory "~/org/"
         org-agenda-files (list org-directory)))
 
+;; Enable org-indent-mode when opening Org buffers
+(add-hook 'org-mode-hook #'org-indent-mode)
+
+(declare-function url-handler-file-remote-p "url-handlers" (filename))
+
+(use-package org-download
+  :after org
+  :config
+  (setq org-download-image-dir "Images"
+        org-download-heading-lvl nil
+        org-download-backend "pngpaste"
+        org-download-screenshot-method "pngpaste %s"
+        org-download-link-format "[[file:%s]]")
+
+  (add-hook 'org-download-after-download-hook #'org-display-inline-images)
+  (add-hook 'org-mode-hook #'org-download-enable))
+
+;; Paste from clipboard if it's an image
+(defun my/org-smart-paste ()
+  "Paste image from clipboard if available, else yank."
+  (interactive)
+  (if (and (eq major-mode 'org-mode)
+           (= 0 (call-process "pngpaste" nil nil nil "-b")))
+      (progn
+        (org-download-clipboard)
+        (org-display-inline-images))
+    (yank)))
+
+(with-eval-after-load 'org
+  (define-key org-mode-map (kbd "s-v") #'my/org-smart-paste))
+
+;; Show images at Org buffer startup
+(setq org-startup-with-inline-images t)
+
+(add-hook 'org-mode-hook #'org-display-inline-images)
+
+(defun my/org-maybe-delete-image (_beg _end _len)
+  "Delete image file if a file link to it was just removed."
+  (when (and (eq major-mode 'org-mode)
+             (not undo-in-progress))
+    (save-excursion
+      ;; Look back one line in case it was just deleted
+      (forward-line -1)
+      (let ((line (thing-at-point 'line t)))
+        (when (and line (string-match "\\[\\[file:\\(.*?\\)\\]\\]" line))
+          (let ((filepath (expand-file-name (match-string 1 line)
+                                            (file-name-directory (buffer-file-name)))))
+            (when (and (file-exists-p filepath)
+                       (string-match-p "\\(png\\|jpg\\|jpeg\\|gif\\)$" filepath))
+              (delete-file filepath)
+              (message "Deleted image file: %s" filepath))))))))
+
+(add-hook 'after-change-functions #'my/org-maybe-delete-image)
+   
 ;; Line numbers
 (global-display-line-numbers-mode t)
-(setq display-line-numbers-type 'relative)
+;; (setq display-line-numbers-type 'relative)
 
 (dolist (mode '(org-mode-hook
                 term-mode-hook
