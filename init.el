@@ -633,9 +633,13 @@
 (setq org-todo-keyword-faces
     '(("NEXT" . "tomato")
     ("START" . "cornflowerblue")
-    ("WAITING" . "palegoldenrod")
+    ("WAIT" . "palegoldenrod")
     ("HOLD" . "lightsalmon")
-    ("BLOCKED" . "red")))
+    ("BLOCK" . "red")))
+
+  (setq org-todo-keywords
+      '((sequence "TODO" "NEXT" "START" "WAIT" "HOLD" "BLOCK" "|" "DONE" "KILL" "NOTE")))
+
 (defun my/org-mode-headline-faces ()
   (let* ((font (cond ((x-list-fonts "Lucida Grande") "Lucida Grande")
                      ((x-list-fonts "Source Sans Pro") "Source Sans Pro")
