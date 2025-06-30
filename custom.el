@@ -4,6 +4,9 @@
  ;; If you edit it by hand, you could mess it up, so be careful.
  ;; Your init file should contain only one such instance.
  ;; If there is more than one, they won't work right.
+ '(custom-safe-themes
+   '("0325a6b5eea7e5febae709dab35ec8648908af12cf2d2b569bedc8da0a3a81c1"
+     default))
  '(org-agenda-files
    '("/Users/atj/Org/Daily/2025-01-28-Tue.org"
      "/Users/atj/Org/Daily/2025-01-29-Wed.org"
@@ -191,16 +194,21 @@
                    corfu dashboard dired-subtree diredfl doom-modeline
                    doom-themes dumb-jump elegant-agenda-mode embark
                    embark-consult evil-collection general kind-icon
-                   lsp-mode lsp-ui magit marginalia move-dup
-                   multiple-cursors orderless org-modern org-roam
+                   lsp-mode lsp-ui magit marginalia
+                   markdown-table-mode move-dup multiple-cursors
+                   orderless org-download org-modern org-roam
                    persp-mode tree-sitter tree-sitter-langs
-                   treesit-auto typescript-mode vertico vterm
-                   yasnippet)))
+                   treesit-auto typescript-mode valign vertico
+                   visual-fill visual-fill-column vterm yasnippet))
+ '(safe-local-variable-values '((eval progn (pp-buffer) (indent-buffer)))))
 (custom-set-faces
  ;; custom-set-faces was added by Custom.
  ;; If you edit it by hand, you could mess it up, so be careful.
  ;; Your init file should contain only one such instance.
  ;; If there is more than one, they won't work right.
+ '(markdown-blockquote-face ((t (:slant italic :foreground "#A3BE8C" :background "#3B4252" :extend t))))
+ '(markdown-bold-face ((t (:weight bold :foreground "#ECEFF4"))))
+ '(markdown-code-face ((t (:inherit fixed-pitch :background "#2E3440" :foreground "#ECEFF4"))))
  '(markdown-header-delimiter-face ((t (:foreground "#616161" :height 0.9))))
  '(markdown-header-face-1 ((t (:height 1.8 :foreground "#A3BE8C" :weight extra-bold))))
  '(markdown-header-face-2 ((t (:height 1.4 :foreground "#EBCB8B" :weight extra-bold))))
@@ -208,6 +216,10 @@
  '(markdown-header-face-4 ((t (:height 1.15 :foreground "#BF616A" :weight bold))))
  '(markdown-header-face-5 ((t (:height 1.1 :foreground "#b48ead" :weight bold))))
  '(markdown-header-face-6 ((t (:height 1.05 :foreground "#5e81ac" :weight semi-bold))))
+ '(markdown-inline-code-face ((t (:inherit fixed-pitch :background "#3B4252" :foreground "#EBCB8B" :box (:line-width -1 :color "#4C566A")))))
+ '(markdown-italic-face ((t (:slant italic :foreground "#D8DEE9"))))
+ '(markdown-link-face ((t (:underline t :foreground "#4FC3F7"))))
+ '(markdown-url-face ((t (:inherit markdown-link-face))))
  '(org-document-title ((t (:inherit default :family "Lucida Grande" :weight bold :height 2.0 :foreground "#8FBCBB" :underline nil))))
  '(org-level-1 ((t (:inherit default :family "Lucida Grande" :weight bold :height 1.5 :foreground "#BF616A"))))
  '(org-level-2 ((t (:inherit default :family "Lucida Grande" :weight bold :height 1.2 :foreground "#D08770"))))

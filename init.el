@@ -1,5 +1,5 @@
 ;; -*- lexical-binding: t; -*-
-   
+
  (setq user-full-name "Adam Johnson"
       user-mail-address "adam.johnson@akips.com")
 ;; Declaring functions
@@ -8,6 +8,8 @@
 (declare-function vterm-send-string "vterm")
 (declare-function vterm-send-return "vterm")
 (declare-function persp-list-buffers "perspective")
+(global-visual-line-mode 1)
+(add-hook 'org-mode-hook #'visual-line-mode)
 
 ;; Font
 ;; You will most likely need to adjust this font size for your system!
@@ -15,10 +17,13 @@
 (set-face-attribute 'default nil :font "Fira Code Retina" :height default-font-size)
 
 
-;; Theme
+;; Themes
 (use-package doom-themes
   :config
-  (load-theme 'doom-nord-aurora t))
+  (load-theme 'doom-nord-aurora t)
+  )
+(add-to-list 'custom-theme-load-path "~/.config/emacs/themes/")
+;; (load-theme 'mdbook-dark t)
 
 
 ;; Dashboard
@@ -339,7 +344,7 @@
               (message "Deleted image file: %s" filepath))))))))
 
 (add-hook 'after-change-functions #'my/org-maybe-delete-image)
-   
+
 ;; Line numbers
 (global-display-line-numbers-mode t)
 ;; (setq display-line-numbers-type 'relative)
@@ -350,6 +355,39 @@
                 eshell-mode-hook))
   (add-hook mode (lambda () (display-line-numbers-mode 0))))
 
+;; Clickable Links
+(defun my/open-link-at-point ()
+  "Open the link at point, if any."
+  (interactive)
+  (let ((url (thing-at-point 'url)))
+    (if url
+        (browse-url url)
+      (message "No URL at point"))))
+(with-eval-after-load 'evil
+  (define-key evil-normal-state-map (kbd "RET") #'my/open-link-at-point))
+
+(defun my/org-mark-done ()
+  "If the current heading is a TODO, mark it DONE."
+  (interactive)
+  (when (org-at-heading-p)
+    (let ((todo-state (org-get-todo-state)))
+      (when (and todo-state (not (string= todo-state "DONE")))
+        (org-todo "DONE")))))
+
+(with-eval-after-load 'org
+  (define-key org-mode-map (kbd "S-<return>") #'my/org-mark-done))
+
+(defun my/org-insert-todo-same-level ()
+  "Insert a new TODO heading at the same level as the current heading."
+  (interactive)
+  (when (org-at-heading-p)
+    (org-end-of-subtree t t)
+    (org-insert-heading)
+    (org-todo "TODO")))
+
+(with-eval-after-load 'org
+  (define-key org-mode-map (kbd "C-<return>") #'my/org-insert-todo-same-level))
+   
 ;; Backups
 (setq backup-directory-alist `((".*" . ,temporary-file-directory)))
 (setq auto-save-file-name-transforms `((".*" ,temporary-file-directory t)))
@@ -385,7 +423,7 @@
     (kbd "<down>") 'next-line
     (kbd "h") 'dired-up-directory
     (kbd "l") 'dired-find-file))
-   
+
 (use-package all-the-icons-dired
   :ensure t
   :hook (dired-mode . all-the-icons-dired-mode))
@@ -393,9 +431,9 @@
 (use-package diredfl
   :ensure t
   :hook (dired-mode . diredfl-mode))
-   
+
 (add-hook 'dired-mode-hook #'turn-on-font-lock)
-   
+
 ;; Avy
 (use-package avy)
 
@@ -471,11 +509,114 @@
 
 (add-hook 'after-save-hook #'my/auto-byte-compile)
 
+;; ;; SNMP
+;; (defun snmpv2-hook ()
+;;   (cond ((string-match "^/Volumes/Sensitive/akips/mib/" buffer-file-name)
+;;          (snmpv2-mode))))
+;; (add-hook 'fundamental 'snmpv2-hook)
+
 ;; SNMP
-(defun snmpv2-hook ()
-  (cond ((string-match "^/Volumes/Sensitive/akips/mib/" buffer-file-name)
-         (snmpv2-mode))))
-(add-hook 'fundamental 'snmpv2-hook)
+(defvar my/snmp-dir "/Volumes/work/akips/mib/")
+
+(defun my/snmp-file-p (filename)
+  "Return non-nil if FILENAME is under `my/snmp-dir` and has no extension."
+  (and filename
+       (not (file-directory-p filename))
+       (string-prefix-p (expand-file-name my/snmp-dir)
+                        (expand-file-name filename))
+       (not (file-name-extension filename))))
+
+(require 'treesit)
+
+;; 1. Tell Emacs where to find your compiled grammar
+(setq treesit-extra-load-path '("~/.config/emacs/tree-sitter/"))
+
+;; 2. Define basic `snmp-mode` for files with no extension
+(defun my/maybe-enable-snmp-mode ()
+  (let ((f (buffer-file-name)))
+    (when (and f
+               (string-prefix-p "/Volumes/work/akips/mib/" (expand-file-name f))
+               (not (file-name-extension f)))
+      (snmp-mode))))
+
+(add-hook 'find-file-hook #'my/maybe-enable-snmp-mode)
+(add-hook 'after-revert-hook #'my/maybe-enable-snmp-mode)
+
+;; 3. Define the modes
+(define-derived-mode snmp-mode prog-mode "SNMP"
+  "Major mode for SNMP MIB files (basic fallback highlighting)."
+  (setq font-lock-defaults
+        '((("^\\(\\w+\\)\\s-*::=" 1 font-lock-function-name-face)
+           ("\\b\\(INTEGER\\|OCTET STRING\\|SEQUENCE\\|OBJECT IDENTIFIER\\)\\b" . font-lock-type-face)
+           ("\\b\\(ACCESS\\|STATUS\\|DESCRIPTION\\|SYNTAX\\|INDEX\\|DEFVAL\\)\\b" . font-lock-keyword-face)
+           ("--.*$" . font-lock-comment-face)))))
+
+(define-derived-mode snmp-ts-mode snmp-mode "SNMP[TS]"
+  "Tree-sitter powered SNMP mode."
+  (when (treesit-ready-p 'snmp)
+    (treesit-parser-create 'snmp)))
+
+(add-to-list 'major-mode-remap-alist '(snmp-mode . snmp-ts-mode))
+
+;; 4. Font lock highlighting (example for `object_identifier`)
+(setq treesit-font-lock-settings
+      (treesit-font-lock-rules
+       :language 'snmp
+       :feature 'definition
+       '((object_identifier name: (identifier) @font-lock-function-name-face))))
+
+;; Optional extra:
+(add-hook 'snmp-ts-mode-hook
+          (lambda ()
+            (setq-local treesit-font-lock-feature-list
+                        '((definition keyword comment type)
+                          (function variable operator)))))
+(defun snmp-jump-to-definition ()
+  "Jump to SNMP definition using Tree-sitter."
+  (interactive)
+  (let* ((symbol (thing-at-point 'symbol t))
+         (root (treesit-buffer-root-node))
+         (query (treesit-query-compile
+                 'snmp
+                 '((object_identifier
+                    name: (identifier) @def.name))))
+         (captures (treesit-query-capture query root))
+         (match (seq-find (lambda (cap)
+                            (let ((name-node (cdr cap)))
+                              (string= (treesit-node-text name-node) symbol)))
+                          captures)))
+    (if match
+        (goto-char (treesit-node-start (cdr match)))
+      (message "Definition for '%s' not found" symbol))))
+
+(define-key snmp-ts-mode-map (kbd "M-.") #'snmp-jump-to-definition)
+
+
+;; SNMPv2 (snmpv2-mode not working like in doom)
+;; (define-derived-mode snmpv2-mode prog-mode "SNMPv2"
+;;   "Major mode for SNMP MIB files with no extension.")(defvar my/snmpv2-dir "/Volumes/work/akips/mib/")
+;; (defvar my/snmpv2-dir "/Volumes/work/akips/mib/")
+
+
+;; (defun my/maybe-enable-snmpv2-mode ()
+;;   "Enable `snmpv2-mode` if the file is under MIBs path and has no extension."
+;;   (let ((filename (buffer-file-name)))
+;;     (when (and filename
+;;                (string-prefix-p (expand-file-name my/snmpv2-dir)
+;;                                 (expand-file-name filename)))
+;;       (when (my/snmpv2-file-p filename)
+;;         (snmpv2-mode)))))
+
+;; (defun my/snmpv2-file-p (filename)
+;;   "Return non-nil if FILENAME is a regular file under `my/snmpv2-dir` and has no extension."
+;;   ;; (message "Checking filename: %s" filename)
+;;   (and filename
+;;        (not (file-directory-p filename))
+;;        (string-prefix-p (expand-file-name my/snmpv2-dir)
+;;                         (expand-file-name filename))
+;;        (not (file-name-extension filename))))
+
+;; (add-hook 'find-file-hook #'my/maybe-enable-snmpv2-mode)
 
 
 ;; Perl
@@ -523,15 +664,458 @@
               (persp-save-state-to-file
                (expand-file-name (format "%s.perps" persp) persp-save-dir)))))
 
-;; Markdown
-(custom-set-faces
- '(markdown-header-delimiter-face ((t (:foreground "#616161" :height 0.9))))
- '(markdown-header-face-1 ((t (:height 1.8 :foreground "#A3BE8C" :weight extra-bold))) )
- '(markdown-header-face-2 ((t (:height 1.4 :foreground "#EBCB8B" :weight extra-bold))) )
- '(markdown-header-face-3 ((t (:height 1.2 :foreground "#D08770" :weight extra-bold))) )
- '(markdown-header-face-4 ((t (:height 1.15 :foreground "#BF616A" :weight bold))) )
- '(markdown-header-face-5 ((t (:height 1.1 :foreground "#b48ead" :weight bold))) )
- '(markdown-header-face-6 ((t (:height 1.05 :foreground "#5e81ac" :weight semi-bold))) ))
+; Markdown
+;; Install and configure valign
+(use-package valign
+  :ensure t
+  :hook (markdown-mode . valign-mode)
+  :config
+  (setq valign-fancy-bar t)
+  (setq valign-max-table-size 8000))
+
+
+;; Load wombat theme when using MD files.
+
+
+
+;; Hide Markdown syntax markers like **bold**, `code`, etc.
+;; (use-package markdown-mode
+;;   :ensure t
+;;   :hook (markdown-mode . my/markdown-setup)
+;;   :config
+;;   (defun my/markdown-setup ()
+;;     (setq-local markdown-hide-markup t)
+;;     (valign-mode 1)))  ;; Just in case valign didn't autoload
+
+;;    (markdown-smart-conceal-mode 1)
+
+;; (custom-set-faces
+;;  '(markdown-header-delimiter-face ((t (:foreground "#616161" :height 0.9))))
+;;  '(markdown-header-face-1 ((t (:height 1.8 :foreground "#A3BE8C" :weight extra-bold))) )
+;;  '(markdown-header-face-2 ((t (:height 1.4 :foreground "#EBCB8B" :weight extra-bold))) )
+;;  '(markdown-header-face-3 ((t (:height 1.2 :foreground "#D08770" :weight extra-bold))) )
+;;  '(markdown-header-face-4 ((t (:height 1.15 :foreground "#BF616A" :weight bold))) )
+;;  '(markdown-header-face-5 ((t (:height 1.1 :foreground "#b48ead" :weight bold))) )
+;;  '(markdown-header-face-6 ((t (:height 1.05 :foreground "#5e81ac" :weight semi-bold))) ))
+
+;; ;; Markdown Style Like mdBook
+;; (setq markdown-fontify-code-blocks-natively t)  ;; Enable proper fontification
+;; (autoload 'markdown-toggle-markup-hiding "markdown-mode" nil t)
+
+;; (setq load-prefer-newer t)
+
+;; ;; Install required packages
+;; (dolist (pkg '(markdown-mode visual-fill-column))
+;;   (unless (package-installed-p pkg)
+;;     (package-refresh-contents)
+;;     (package-install pkg)))
+
+;; (require 'markdown-mode)
+;; (require 'visual-fill-column)
+
+;; ;; Font setup
+;; (set-face-attribute 'fixed-pitch nil :family "JetBrains Mono" :height 110)
+;; (set-face-attribute 'variable-pitch nil :family "Cantarell" :height 130)
+
+;; (defun my/mdbook-faces ()
+;;   (custom-set-faces
+;;    '(markdown-header-face-1 ((t (:foreground "#ECEFF4" :height 1.8 :weight bold))))
+;;    '(markdown-header-face-2 ((t (:foreground "#D8DEE9" :height 1.5 :weight bold))))
+;;    '(markdown-header-face-3 ((t (:foreground "#B48EAD" :height 1.3 :weight bold))))
+;;    '(markdown-header-face-4 ((t (:foreground "#A3BE8C" :height 1.2 :weight semi-bold))))
+;;    '(markdown-header-face-5 ((t (:foreground "#EBCB8B" :height 1.1 :weight normal))))
+;;    '(markdown-header-face-6 ((t (:foreground "#88C0D0" :height 1.05 :weight normal))))
+;;    '(markdown-header-delimiter-face ((t (:foreground "#4C566A" :height 0.9))))
+;;    ;; Code
+;;    '(markdown-code-face ((t (:inherit fixed-pitch :background "#2E3440" :foreground "#D8DEE9" :extend t))))
+;;    '(markdown-inline-code-face ((t (:inherit fixed-pitch :background "#3B4252" :foreground "#EBCB8B"
+;;                                              :box (:line-width -1 :color "#4C566A")))))
+;;    ;; Blockquote
+;;    '(markdown-blockquote-face ((t (:slant italic :foreground "#A3BE8C" :background "#3B4252" :extend t))))
+;;    ;; Emphasis
+;;    '(markdown-bold-face ((t (:weight bold :foreground "#ECEFF4"))))
+;;    '(markdown-italic-face ((t (:slant italic :foreground "#D8DEE9"))))
+;;    ;; Links
+;;    '(markdown-link-face ((t (:underline t :foreground "#4FC3F7"))))
+;;    '(markdown-url-face ((t (:inherit markdown-link-face))))))
+
+
+;; (defun my/hide-code-fences ()
+;;   "Hide ``` lines in code blocks for cleaner look."
+;;   (font-lock-add-keywords
+;;    nil
+;;    '(("^```.*" (0 (progn (add-text-properties (match-beginning 0) (match-end 0)
+;;                                               '(invisible t display ""))
+;;                          nil)))
+;;      ("^```$" (0 (progn (add-text-properties (match-beginning 0) (match-end 0)
+;;                                              '(invisible t display ""))
+;;                        nil))))))
+
+;; (defun my/mdbook-appearance ()
+;;   "Setup centered, styled Markdown view like mdBook."
+;;   (visual-line-mode 1)
+;;   (visual-fill-column-mode 1)
+;;   (setq-local visual-fill-column-width 90
+;;               visual-fill-column-center-text t)
+;;   (variable-pitch-mode 1)
+;;   (my/hide-code-fences)
+;;   (my/mdbook-faces))
+
+;; (add-hook 'markdown-mode-hook #'my/mdbook-appearance)
+
+;; (with-eval-after-load 'markdown-mode
+;;   (add-hook 'markdown-mode-hook
+;;             (lambda ()
+;;               (setq markdown-hide-markup t
+;;                     markdown-hide-urls t)
+;;               (when (fboundp 'markdown-font-lock-extend-region)
+;;                 (add-hook 'font-lock-extend-region-functions
+;;                           #'markdown-font-lock-extend-region nil t))
+;;               (when (fboundp 'markdown-toggle-markup-hiding)
+;;                 (markdown-toggle-markup-hiding 1))
+;;               (jit-lock-mode 1)
+;;               (setq-local jit-lock-contextually t))))
+
+;; (defun my/markdown-preview ()
+;;   "Preview markdown in browser."
+;;   (interactive)
+;;   (markdown-export-and-preview))
+
+;; (define-key markdown-mode-map (kbd "C-c m p") #'my/markdown-preview)
+
+;; (setq markdown-fontify-code-blocks-natively t) ; Enable syntax highlighting
+;; (autoload 'markdown-toggle-markup-hiding "markdown-mode" nil t) ; Ensure toggle is available
+
+
+
+;; (setq markdown-fontify-code-blocks-natively nil)
+
+;; (unless (package-installed-p 'visual-fill-column)
+;;   (package-refresh-contents)
+;;   (package-install 'visual-fill-column))
+
+;; (require 'visual-fill-column)
+;; (declare-function visual-fill-column-mode "visual-fill-column")
+;; (require 'markdown-mode)
+;; (setq markdown-fontify-code-blocks-natively nil)
+
+;; (custom-set-faces
+;;  '(markdown-code-face
+;;    ((t (:inherit fixed-pitch
+;;          :background "#2E3440"
+;;          :foreground "#D8DEE9"
+;;          :extend t)))))
+
+;; (set-face-attribute 'fixed-pitch nil :family "JetBrains Mono" :height 110)
+;; (set-face-attribute 'variable-pitch nil :family "Cantarell" :height 130)
+
+;; (defun my/mdbook-markdown-faces ()
+;;   (custom-set-faces
+;;    ;; Headings
+;;    '(markdown-header-face-1 ((t (:foreground "#FFFFFF" :height 1.8 :weight extra-bold))))
+;;    '(markdown-header-face-2 ((t (:foreground "#E0E0E0" :height 1.5 :weight bold))))
+;;    '(markdown-header-face-3 ((t (:foreground "#CCCCCC" :height 1.3 :weight bold))))
+;;    '(markdown-header-face-4 ((t (:foreground "#BBBBBB" :height 1.2 :weight semi-bold))))
+;;    '(markdown-header-face-5 ((t (:foreground "#AAAAAA" :height 1.1 :weight normal))))
+;;    '(markdown-header-face-6 ((t (:foreground "#999999" :height 1.05 :weight normal))))
+;;    '(markdown-header-delimiter-face ((t (:foreground "#555555" :height 0.9))))
+
+;;    ;; Code
+;;    '(markdown-code-face ((t (:inherit fixed-pitch :background "#F0F0F0" :foreground "#333333"))))
+;;    '(markdown-inline-code-face ((t (:inherit fixed-pitch :background "#E8E8E8" :foreground "#005CC5"
+;;                                              :box (:line-width -1 :color "#CCCCCC")))))
+
+;;    ;; Blockquote and emphasis
+;;    '(markdown-blockquote-face ((t (:slant italic :foreground "#A3BE8C" :background "#3B4252" :extend t))))
+;;    '(markdown-bold-face ((t (:weight bold :foreground "#ECEFF4"))))
+;;    '(markdown-italic-face ((t (:slant italic :foreground "#D8DEE9"))))
+
+;;    ;; Links
+;;    '(markdown-link-face ((t (:underline t :foreground "#4FC3F7"))))
+;;    '(markdown-url-face ((t (:inherit markdown-link-face))))))
+
+;; (defun my/markdown-mdbook-setup ()
+;;   (visual-line-mode 1)
+;;   (visual-fill-column-mode 1)
+;;   (setq-local visual-fill-column-width 90
+;;               visual-fill-column-center-text t)
+;;   (variable-pitch-mode 1)
+;;   (my/mdbook-markdown-faces))
+
+;; (add-hook 'markdown-mode-hook #'my/markdown-mdbook-setup)
+
+;; (defun my/mdbook-markdown-code-faces ()
+;;   (custom-set-faces
+;;    ;; Code blocks
+;;    '(markdown-code-face
+;;      ((t (:inherit fixed-pitch
+;;            :background "#2E3440"
+;;            :foreground "#D8DEE9"
+;;            :extend t))))
+;;    ;; Inline code
+;;    '(markdown-inline-code-face
+;;      ((t (:inherit fixed-pitch
+;;            :background "#3B4252"
+;;            :foreground "#EBCB8B"
+;;            :box (:line-width -1 :color "#4C566A")))))))
+
+;; (add-hook 'markdown-mode-hook #'my/mdbook-markdown-code-faces)
+
+;; (require 'markdown-mode)
+;; (setq markdown-fontify-code-blocks-natively nil)
+
+;; (set-face-attribute 'fixed-pitch nil :family "JetBrains Mono" :height 110)
+;; ;; Optional: choose a proportional font for variable-pitch
+;; (set-face-attribute 'variable-pitch nil :family "Georgia" :height 130)
+
+;; (defun my/markdown-appearance-mdbook ()
+;;   "Set up Markdown for mdBook-like appearance: centered, styled, readable."
+;;   ;; Line wrapping and centering
+;;   (visual-line-mode 1)
+;;   (visual-fill-column-mode 1)
+;;   (setq-local visual-fill-column-width 100
+;;               visual-fill-column-center-text t)
+
+;;   ;; Optional: use proportional font for body, monospaced for code
+;;   (variable-pitch-mode 1)
+
+;;   ;; Force our face customizations again just in case
+;;   (my/nord-markdown-heading-faces))
+
+;; (add-hook 'markdown-mode-hook #'my/markdown-appearance-mdbook)
+
+;; (defun my/nord-markdown-heading-faces ()
+;;   (custom-set-faces
+;;    '(markdown-header-face-1 ((t (:foreground "#ECEFF4" :height 1.8 :weight ultra-bold))))
+;;    '(markdown-header-face-2 ((t (:foreground "#D8DEE9" :height 1.5 :weight bold))))
+;;    '(markdown-header-face-3 ((t (:foreground "#B48EAD" :height 1.3 :weight bold))))
+;;    '(markdown-header-face-4 ((t (:foreground "#A3BE8C" :height 1.2 :weight semi-bold))))
+;;    '(markdown-header-face-5 ((t (:foreground "#EBCB8B" :height 1.1 :weight normal))))
+;;    '(markdown-header-face-6 ((t (:foreground "#88C0D0" :height 1.05 :weight normal))))
+;;    '(markdown-header-delimiter-face ((t (:foreground "#4C566A" :height 0.9))))
+;;    '(markdown-code-face ((t (:inherit fixed-pitch :background "#2E3440" :foreground "#ECEFF4"))))
+;;    '(markdown-inline-code-face ((t (:inherit fixed-pitch :background "#3B4252" :foreground "#EBCB8B"
+;;                                              :box (:line-width -1 :color "#4C566A")))))
+;;    '(markdown-blockquote-face ((t (:slant italic :foreground "#A3BE8C" :background "#3B4252" :extend t))))
+;;    '(markdown-bold-face ((t (:weight bold :foreground "#ECEFF4"))))
+;;    '(markdown-italic-face ((t (:slant italic :foreground "#D8DEE9"))))
+;;    '(markdown-link-face ((t (:underline t :foreground "#4FC3F7"))))
+;;    '(markdown-url-face ((t (:inherit markdown-link-face))))))
+
+;; Change theme to wombat for markdown *************************************
+
+ ;; Change theme for MD files.
+;; (defvar my/markdown-theme 'wombat)
+;; (defvar my/global-theme 'doom-nord-aurora) ;; or whatever you normally use
+
+;; (defun my/enable-theme-for-markdown ()
+;;   "Switch to markdown-specific theme."
+;;   (when (derived-mode-p 'markdown-mode)
+;;     (unless (eq (car custom-enabled-themes) my/markdown-theme)
+;;       (mapc #'disable-theme custom-enabled-themes)
+;;       (load-theme my/markdown-theme t))))
+
+;; (defun my/restore-global-theme ()
+;;   "Restore the global theme for non-Markdown buffers."
+;;   (unless (derived-mode-p 'markdown-mode)
+;;     (unless (eq (car custom-enabled-themes) my/global-theme)
+;;       (mapc #'disable-theme custom-enabled-themes)
+;;       (load-theme my/global-theme t))))
+
+;; (defun my/markdown-theme-tracker ()
+;;   "Switch themes based on current buffer."
+;;   (if (derived-mode-p 'markdown-mode)
+;;       (my/enable-theme-for-markdown)
+;;     (my/restore-global-theme)))
+
+;; ;; Use `window-buffer-change-functions` if available (Emacs 29+)
+;; (if (boundp 'window-buffer-change-functions)
+;;     (add-hook 'window-buffer-change-functions (lambda (_win) (my/markdown-theme-tracker)))
+;;   ;; Else fallback for older Emacs versions
+;;   (add-hook 'buffer-list-update-hook #'my/markdown-theme-tracker))
+;; ;; *******************************************************************************
+
+
+;; Very Very Close ************************
+
+
+;; (require 'markdown-mode)
+;; (setq markdown-fontify-code-blocks-natively nil)
+;; (set-face-attribute 'fixed-pitch nil :family "JetBrains Mono" :height 110)
+
+;; (defvar nb/previous-line '(0 . 0)
+;;   "Track previous line's (start . end) to re-hide tags.")
+;; (make-variable-buffer-local 'nb/previous-line)
+
+;; ;; Heading and style faces
+;; (defun my/nord-markdown-heading-faces ()
+;;   "Override markdown header faces to be more visible in nord-arora."
+;;   (custom-set-faces
+;;    ;; Headings
+;;    '(markdown-header-face-1 ((t (:foreground "#ECEFF4" :height 1.8 :weight ultra-bold))))
+;;    '(markdown-header-face-2 ((t (:foreground "#D8DEE9" :height 1.5 :weight bold))))
+;;    '(markdown-header-face-3 ((t (:foreground "#B48EAD" :height 1.3 :weight bold))))
+;;    '(markdown-header-face-4 ((t (:foreground "#A3BE8C" :height 1.2 :weight semi-bold))))
+;;    '(markdown-header-face-5 ((t (:foreground "#EBCB8B" :height 1.1 :weight normal))))
+;;    '(markdown-header-face-6 ((t (:foreground "#88C0D0" :height 1.05 :weight normal))))
+;;    '(markdown-header-delimiter-face ((t (:foreground "#4C566A" :height 0.9))))
+
+;;    ;; Code blocks
+;;    '(markdown-code-face ((t (:inherit fixed-pitch
+;;                                :background "#2E3440"
+;;                                :foreground "#ECEFF4"
+;;                                :extend t))))
+;;    ;; Inline code
+;;    '(markdown-inline-code-face ((t (:inherit fixed-pitch
+;;                                       :background "#3B4252"
+;;                                       :foreground "#EBCB8B"
+;;                                       :box (:line-width -1 :color "#4C566A")))))
+
+;;    ;; Blockquotes and emphasis
+;;    '(markdown-blockquote-face ((t (:slant italic :foreground "#A3BE8C" :background "#3B4252" :extend t))))
+;;    '(markdown-bold-face ((t (:weight bold :foreground "#ECEFF4"))))
+;;    '(markdown-italic-face ((t (:slant italic :foreground "#D8DEE9"))))
+
+;;    ;; Links
+;;    '(markdown-link-face ((t (:underline t :foreground "#4FC3F7"))))
+;;    '(markdown-url-face ((t (:inherit markdown-link-face))))))
+;; (add-hook 'markdown-mode-hook #'my/nord-markdown-heading-faces)
+
+;; ;; --- Dynamic concealment logic ---
+
+;; (defvar nb/current-line '(0 . 0)
+;;   "(start . end) of current line in current buffer.")
+;; (make-variable-buffer-local 'nb/current-line)
+
+;; (defun nb/unhide-current-line (limit)
+;;   "Font-lock function to unhide markup on current line."
+;;   (let ((start (max (point) (car nb/current-line)))
+;;         (end (min limit (cdr nb/current-line))))
+;;     (when (< start end)
+;;       (remove-text-properties start end
+;;                               '(invisible markdown-markup display "" composition ""))
+;;       (goto-char limit)
+;;       t)))
+
+;;   (add-hook 'markdown-mode-hook
+;;           (lambda ()
+;;             (setq nb/current-line (cons 0 0)) ;; always init safely
+;;             (add-hook 'post-command-hook #'nb/refontify-on-linemove nil t)))
+
+;; ;; (defun nb/refontify-on-linemove ()
+;; ;;   "Refontify new line and re-hide previous line."
+;; ;;   (condition-case err
+;; ;;       (let* ((curr-start (line-beginning-position))
+;; ;;              (curr-end (min (point-max) (1+ (line-end-position))))
+;; ;;              (needs-update (not (equal curr-start (car nb/current-line))))
+;; ;;              (prev-start (car nb/current-line))
+;; ;;              (prev-end (cdr nb/current-line)))
+;; ;;         (setq nb/current-line (cons curr-start curr-end))
+;; ;;         (when needs-update
+;; ;;           ;; Re-hide old line
+;; ;;           (when (and prev-start prev-end (number-or-marker-p prev-start) (number-or-marker-p prev-end))
+;; ;;             (font-lock-flush prev-start prev-end)
+;; ;;             (font-lock-ensure prev-start prev-end))
+;; ;;           ;; Reveal new line
+;; ;;           (font-lock-flush curr-start curr-end)
+;; ;;           (font-lock-ensure curr-start curr-end)))
+;; ;;     (error
+;; ;;      (message "nb/refontify-on-linemove error: %s" (error-message-string err)))))
+
+;;  (require 'markdown-mode)
+
+;; ;; Turn on hiding of markdown markup
+;; (setq markdown-hide-markup t)
+
+;; (defun nb/unhide-current-line (limit)
+;;   "Unhide markup on the current line up to LIMIT."
+;;   (let ((start (max (point) nb/last-line-start))
+;;         (end (min limit (line-end-position))))
+;;     (remove-text-properties start end
+;;                             '(invisible markdown-markup display "" composition ""))
+;;     (goto-char limit)
+;;     t))
+
+;; (defvar-local nb/last-line-start 0
+;;   "Start of the last active line used to rehide it.")
+
+;; (defun nb/markdown-smart-conceal ()
+;;   "Enable dynamic conceal for markdown markup."
+;;   (interactive)
+;;   (setq markdown-hide-markup t)
+;;   ;; Add keyword to font-lock to unhide current line
+;;   (font-lock-add-keywords nil '((nb/unhide-current-line)) t)
+;;   (add-hook 'post-command-hook #'nb/refontify-on-linemove nil t)
+;;   (markdown-toggle-markup-hiding 1))
+
+;; (add-hook 'markdown-mode-hook #'nb/markdown-smart-conceal)
+
+;; (defun nb/markdown-unhighlight ()
+;;   "Enable Markdown concealing with reveal-on-focus."
+;;   (interactive)
+;;   (setq markdown-hide-markup t)
+;;   (when (fboundp 'markdown-toggle-markup-hiding)
+;;     (markdown-toggle-markup-hiding 1))
+;;   ;; Apply per-line reveal
+;;   (font-lock-add-keywords nil '((nb/unhide-current-line)) t)
+;;   (add-hook 'post-command-hook #'nb/refontify-on-linemove nil t))
+
+;; (add-hook 'markdown-mode-hook #'nb/markdown-unhighlight)
+
+;; (with-eval-after-load 'markdown-mode
+;;   (custom-set-faces
+;;    '(markdown-code-face ((t (:inherit fixed-pitch
+;;                                :background "#2E3440"
+;;                                :foreground "#ECEFF4"
+;;                                :extend t))))))
+
+;; (with-eval-after-load 'markdown-mode
+;;   (custom-set-faces
+;;    '(markdown-code-face
+;;      ((t (:inherit fixed-pitch
+;;            :background "#2E3440"
+;;            :foreground "#ECEFF4"
+;;            :extend t))))
+;;    '(markdown-pre-face
+;;      ((t (:inherit fixed-pitch
+;;            :background "#2E3440"
+;;            :foreground "#ECEFF4"
+;;            :extend t))))))
+;; ;; *****************************************************************************
+
+;; Close but no centering and code blocks have no background color
+(require 'markdown-mode)
+(setq markdown-fontify-code-blocks-natively nil)
+(set-face-attribute 'fixed-pitch nil :family "JetBrains Mono" :height 110)
+
+(defun my/nord-markdown-heading-faces ()
+  "Override markdown header faces to be more visible in nord-arora."
+  (custom-set-faces
+   ;; Headings
+   '(markdown-header-face-1 ((t (:foreground "#ECEFF4" :height 1.8 :weight ultra-bold))))
+   '(markdown-header-face-2 ((t (:foreground "#D8DEE9" :height 1.5 :weight bold))))
+   '(markdown-header-face-3 ((t (:foreground "#B48EAD" :height 1.3 :weight bold))))
+   '(markdown-header-face-4 ((t (:foreground "#A3BE8C" :height 1.2 :weight semi-bold))))
+   '(markdown-header-face-5 ((t (:foreground "#EBCB8B" :height 1.1 :weight normal))))
+   '(markdown-header-face-6 ((t (:foreground "#88C0D0" :height 1.05 :weight normal))))
+   '(markdown-header-delimiter-face ((t (:foreground "#4C566A" :height 0.9))))
+
+   ;; Code
+   '(markdown-code-face ((t (:inherit fixed-pitch :background "#2E3440" :foreground "#ECEFF4"))))
+   '(markdown-inline-code-face ((t (:inherit fixed-pitch :background "#3B4252" :foreground "#EBCB8B"
+                                             :box (:line-width -1 :color "#4C566A")))))
+
+   ;; Blockquotes and emphasis
+   '(markdown-blockquote-face ((t (:slant italic :foreground "#A3BE8C" :background "#3B4252" :extend t))))
+   '(markdown-bold-face ((t (:weight bold :foreground "#ECEFF4"))))
+   '(markdown-italic-face ((t (:slant italic :foreground "#D8DEE9"))))
+
+   ;; Links
+   '(markdown-link-face ((t (:underline t :foreground "#4FC3F7"))))
+   '(markdown-url-face ((t (:inherit markdown-link-face))))))
+
+(add-hook 'markdown-mode-hook #'my/nord-markdown-heading-faces)
+
 
 (defvar nb/current-line '(0 . 0)
    "(start . end) of current line in current buffer")
@@ -565,7 +1149,7 @@
 
 (add-hook 'markdown-mode-hook #'nb/markdown-unhighlight)
 
-   
+
 ;; Org Mode
 (use-package org
   :ensure t)
@@ -628,6 +1212,35 @@
 (setq org-agenda-files
       '("/Users/atj/RoamNotes/"))
 
+(setq org-startup-indented t)      ;; auto-enable org-indent-mode
+(setq org-hide-leading-stars t)    ;; hide extra asterisks
+;; (setq org-indent-mode-turns-on-hiding-stars nil) ;; optional: don't hide leading stars when indenting
+
+(defun my/org-move-cursor-after-stars ()
+  "Move point after leading stars and a space."
+  (when (and (org-at-heading-p)
+             (looking-at "\\*+ "))
+    (goto-char (match-end 0))))
+
+(defun my/org-cycle-preserve-position ()
+  "Preserve cursor column after `org-cycle'."
+  (interactive)
+  (let ((col (current-column)))
+    (org-cycle)
+    (move-to-column col)))
+
+(define-key org-mode-map (kbd "TAB") #'my/org-cycle-preserve-position)
+
+(defun my/org-tab-action ()
+  "Do context-aware tab in Org mode."
+  (interactive)
+  (if (org-at-heading-p)
+      (my/org-cycle-preserve-position)
+    (org-indent-line)))
+
+(define-key org-mode-map (kbd "TAB") #'my/org-tab-action)
+
+(advice-add 'org-insert-heading :after #'my/org-move-cursor-after-stars)
 
 ;; Org Themes
 (setq org-todo-keyword-faces
@@ -769,71 +1382,127 @@
         (tsx        . ("https://github.com/tree-sitter/tree-sitter-typescript" "tsx"))
         (c          . ("https://github.com/tree-sitter/tree-sitter-c"))))
 
-   
-   
-;; 2. Set install path (optional but safer)
+
+;; Tell Emacs where to find your custom language grammar (your compiled snmp .so/dylib)
 (setq treesit-extra-load-path '("~/.config/emacs/tree-sitter/"))
 
-;; 3. Install grammars manually
-(unless (treesit-language-available-p 'typescript)
-  (treesit-install-language-grammar 'typescript))
-
-(unless (treesit-language-available-p 'c)
-  (treesit-install-language-grammar 'c))
-  ;; Safe wrapper to get the LSP server ID (optional if you need it)
-(use-package tree-sitter
-  :ensure t
-  :hook ((typescript-mode . tree-sitter-mode)
-         (tree-sitter-mode)
-         ;; Add other modes if needed
-         )
-  :config
-  (use-package tree-sitter-langs
-    :ensure t))
-;; Remove tsx remapping from mode remap alist
-;; (setq major-mode-remap-alist
-;;       (cl-remove-if
-;;        (lambda (pair)
-;;          (memq (cdr pair) '(tsx-ts-mode)))
-;;        major-mode-remap-alist))
-
-;; ;; Remove tsx-ts-mode remapping from major-mode remap list
-;; (setq major-mode-remap-alist
-;;       (cl-remove-if (lambda (pair)
-;;                       (eq (cdr pair) 'tsx-ts-mode))
-;;                     major-mode-remap-alist))
-
-;; ;; Optional: Remove TSX language source if set
-;; (setq treesit-language-source-alist
-;;       (assq-delete-all 'tsx treesit-language-source-alist))
-
 (require 'treesit)
-(require 'tree-sitter)
-(require 'tree-sitter-langs)
 
-;; install only once
-;; (treesit-install-language-grammar 'typescript)
-;; (treesit-install-language-grammar 'tsx)
-;; (treesit-install-language-grammar 'c)
-;; (treesit-install-language-grammar 'javascript)
+;; Define your snmp major mode (if not already defined)
+(define-derived-mode snmp-mode prog-mode "SNMP"
+  "Major mode for SNMP MIB files.")
+
+;; Define a treesit-based derived mode that activates the parser
+(define-derived-mode snmp-ts-mode snmp-mode "SNMP[TS]"
+  "Tree-sitter based SNMP mode."
+  (when (treesit-ready-p 'snmp)
+    (treesit-parser-create 'snmp)))
+
+;; Automatically remap snmp-mode buffers to snmp-ts-mode if treesit parser is available
+(add-to-list 'major-mode-remap-alist '(snmp-mode . snmp-ts-mode))
+
+;; Optional: Automatically use snmp-mode for your files (adjust path and extension)
+(defun my/snmp-file-p (filename)
+  (and (string-prefix-p (expand-file-name "/Volumes/work/akips/mib/")
+                        (expand-file-name filename))
+       (not (file-name-extension filename))))
+
+(defun my/snmp-auto-mode ()
+  (when-let ((f (buffer-file-name)))
+    (when (my/snmp-file-p f)
+      (snmp-mode))))
+
+(add-hook 'find-file-hook #'my/snmp-auto-mode)
+
+;; Optional: define highlighting rules (adjust for your grammar)
+(setq treesit-font-lock-settings
+      (treesit-font-lock-rules
+       :language 'snmp
+       :feature 'keyword
+       '((keyword) @font-lock-keyword-face)))
+
+;; Optional: you can add more treesit rules for your language features here
+
+;;;;;;; *********************
+;; 2. Set install path (optional but safer)
+;; (setq treesit-extra-load-path '("~/.config/emacs/tree-sitter/"))
+
+;; ;; 3. Install grammars manually
+;; (unless (treesit-language-available-p 'typescript)
+;;   (treesit-install-language-grammar 'typescript))
+
+;; (unless (treesit-language-available-p 'c)
+;;   (treesit-install-language-grammar 'c))
+;;   ;; Safe wrapper to get the LSP server ID (optional if you need it)
+;; (use-package tree-sitter
+;;   :ensure t
+;;   :hook ((typescript-mode . tree-sitter-mode)
+;;          (tree-sitter-mode)
+;;          ;; Add other modes if needed
+;;          )
+;;   :config
+;;   (add-to-list 'tree-sitter-load-path "~/.emacs.d/tree-sitter-langs/bin/")
+;;   (add-to-list 'tree-sitter-major-mode-language-alist '(snmp-mode . snmp)
+;;   (use-package tree-sitter-langs
+;;     :ensure t))
+
+;;   (add-hook 'snmp-mode-hook #'tree-sitter-mode)
+;;   (add-hook 'snmp-mode-hook #'tree-sitter-hl-mode))
+
+;; (setq treesit-extra-load-path '("~/.config/emacs/tree-sitter"))
+;; (tree-sitter-require 'snmp)
+
+;; (define-derived-mode snmp-mode prog-mode "SNMP"
+;;   "Major mode for SNMP MIB files.")
+
+;; (add-to-list 'major-mode-remap-alist
+;;              '(snmp-mode . snmp-ts-mode))
+
+;; (define-derived-mode snmp-ts-mode snmp-mode "SNMP[TS]"
+;;   "Tree-sitter based SNMP mode."
+;;   (when (treesit-ready-p 'snmp)
+;;     (treesit-parser-create 'snmp)))
 
 
-;; (require 'treesit-auto)
-;; (setq treesit-auto-install 'prompt) ;; or 'always to auto-install without prompt
-;; (global-treesit-auto-mode)
+;; (defun my/snmp-file-p (filename)
+;;   (and (string-prefix-p (expand-file-name "/Volumes/work/akips/mib/")
+;;                         (expand-file-name filename))
+;;        (not (file-name-extension filename))))
 
-;; (setq treesit-auto-install 'prompt) ; or 'always
-;; (global-treesit-auto-mode)
+;; (defun my/snmp-auto-mode ()
+;;   (when-let ((f (buffer-file-name)))
+;;     (when (my/snmp-file-p f)
+;;       (snmp-mode))))
 
-;; (setq treesit-language-source-alist
-;;       '((typescript . ("https://github.com/tree-sitter/tree-sitter-typescript" "master" "typescript/src"))
-;;         (tsx       . ("https://github.com/tree-sitter/tree-sitter-typescript" "master" "tsx/src"))
-;;         ;; (c         . ("https://github.com/tree-sitter/tree-sitter-c"))
-;;         (javascript . ("https://github.com/tree-sitter/tree-sitter-javascript"))
-;;         ;; add more if needed
-;;         ))
+;; (add-hook 'find-file-hook #'my/snmp-auto-mode)
 
-;; (setq treesit-auto-install 'prompt) ;; Default — asks every time
+;; (use-package tree-sitter-langs
+;;   :after tree-sitter)
+;; ;; Remove tsx remapping from mode remap alist
+;; ;; (setq major-mode-remap-alist
+;; ;;       (cl-remove-if
+;; ;;        (lambda (pair)
+;; ;;          (memq (cdr pair) '(tsx-ts-mode)))
+;; ;;        major-mode-remap-alist))
+
+;; ;; ;; Remove tsx-ts-mode remapping from major-mode remap list
+;; ;; (setq major-mode-remap-alist
+;; ;;       (cl-remove-if (lambda (pair)
+;; ;;                       (eq (cdr pair) 'tsx-ts-mode))
+;; ;;                     major-mode-remap-alist))
+
+;; ;; ;; Optional: Remove TSX language source if set
+;; ;; (setq treesit-language-source-alist
+;; ;;       (assq-delete-all 'tsx treesit-language-source-alist))
+;; ;; Ensure the shared library path is known
+
+;; ;; Load the language
+;; (require 'treesit)
+;; ;; (tree-sitter-require 'snmp)  ;; This will look for snmp.dylib in the load-path
+;; ;; Ensure the shared library path is known
+;; (add-to-list 'tree-sitter-load-path "~/.emacs.d/tree-sitter-langs/bin/")
+
+;; ;; Load the language
 
 ;; Change it to this to automatically install without prompting:
 ;;(setq treesit-auto-install 'always)
@@ -843,28 +1512,8 @@
        :feature 'keyword
        '((keyword) @font-lock-keyword-face)))
 
-(setq treesit-font-lock-settings
-      (treesit-font-lock-rules
-       :language 'typescript
-       :feature 'keyword
-       '((keyword) @font-lock-keyword-face)))
-
 (setq major-mode-remap-alist
       '((typescript-ts-mode . typescript-mode)))
-
-;; ;; Example: change tree-sitter face mappings
-;; (setq treesit-font-lock-settings
-;;       (treesit-font-lock-rules
-;;        :language 'typescript
-;;        :feature 'function
-;;        '((function_declaration
-;;           name: (identifier) @font-lock-function-name-face))
-
-;;        :feature 'keyword
-;;        '((keyword) @font-lock-keyword-face)
-
-;;        ;; Add more customizations as needed
-;;        ))
 
 (add-hook 'typescript-ts-mode-hook
           (lambda ()
@@ -940,16 +1589,24 @@ Special handling for Dired and Magit buffers."
   (cond
    ;; Refresh Dired
    ((derived-mode-p 'dired-mode)
-    (revert-buffer))
+    (revert-buffer nil t)) ;; no prompt
 
    ;; Refresh Magit buffers
-   ((string-prefix-p "magit" (format "%s" major-mode))
+   ((derived-mode-p 'magit-mode)
     (magit-refresh))
 
    ;; Generic revert for other buffers
    (t
-    (revert-buffer :ignore-auto :noconfirm))))
-   
+    (with-demoted-errors "Revert error: %S"
+      (let ((revert-without-query '(".*")))
+        (revert-buffer nil t t))))))
+
+(defun my/kill-buffer-no-prompt ()
+  "Kill the current buffer without confirmation, even if modified."
+  (interactive)
+  (set-buffer-modified-p nil)  ;; Mark buffer as unmodified
+  (kill-this-buffer))
+
 ;; Org
 (global-set-key (kbd "C-c a") #'org-agenda)
 
@@ -1027,7 +1684,7 @@ Special handling for Dired and Magit buffers."
 
     ;; Buffers
     "b"   '(:ignore t :which-key "buffer")
-    "bk"  '(kill-buffer :which-key "kill buffer")
+    "bk"  '(my/kill-buffer-no-prompt :which-key "kill buffer")
     "br"  '(my/revert-buffer-no-confirm :which-key "revert buffer")
     "be"  '(eval-buffer :which-key "eval buffer")
     ;; "bo"  '(eval-buffer :which-key "buffer org2html")
@@ -1147,6 +1804,17 @@ Special handling for Dired and Magit buffers."
 (defun my/dired-hide-details ()
   "Ensure dired details are hidden by default."
   (dired-hide-details-mode 1))
+
+(setq dired-dwim-target t)
+
+   ;; Auto-revert everything when files change on disk
+(global-auto-revert-mode 1)
+
+;; Also auto-refresh Dired buffers
+(setq global-auto-revert-non-file-buffers t)
+
+;; Be quiet about it
+(setq auto-revert-verbose nil)
 
   ;; Your custom global keybindings
   (global-set-key (kbd "C-x C-b") #'persp-list-buffers)

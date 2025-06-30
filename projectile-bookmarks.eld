@@ -1,1 +1,1 @@
-("~/.config/emacs/" "/Volumes/work/manuals/" "/Volumes/work/akips/" "~/Org/" "~/org/" "~/RoamNotes/" "~/support/" "/Volumes/work/docs/" "/opt/homebrew/" "~/.emacs.d/")
+("~/.config/emacs/" "/Volumes/work/akips/" "~/RoamNotes/" "/Volumes/work/manuals/" "~/.config/" "~/Org/" "~/org/" "~/support/" "/Volumes/work/docs/" "/opt/homebrew/" "~/.emacs.d/")
