@@ -1346,6 +1346,25 @@ This block will select org faces based on selected theme.
             (revert-buffer :ignore-auto :noconfirm))))
       (message "Reverted all buffers in project: %s" project-root))))
 #+end_src
+* Vterm 
+#+begin_src emacs-lisp
+(use-package vterm
+  :ensure t)
+
+(defun my/vterm-toggle ()
+  "Toggle a full-width vterm at the bottom of the frame."
+  (interactive)
+  (let ((vterm-buffer (get-buffer "*vterm*")))
+    (if (and vterm-buffer (get-buffer-window vterm-buffer))
+        ;; If visible: close window
+        (delete-window (get-buffer-window vterm-buffer))
+      ;; Else: open or switch to vterm
+      (let ((window (split-window (frame-root-window) -15 'below)))
+        (select-window window)
+        (if vterm-buffer
+            (switch-to-buffer vterm-buffer)
+          (vterm))))))
+#+end_src
 * Keybindings
 ** Which-key
 #+begin_src emacs-lisp
@@ -1535,8 +1554,8 @@ Unset keys globally so that they can be repurposed.
 #+end_src
 *** Vterm
 #+begin_src emacs-lisp
-(global-set-key (kbd "C-s-t") '+vterm/toggle)
-(global-set-key (kbd "C-s-n") '+vterm/here)
+  (global-set-key (kbd "C-s-t") 'my/vterm-toggle)
+  ;; (global-set-key (kbd "C-s-n") '+vterm/here)
 #+end_src
 *** Window
 #+begin_src emacs-lisp
@@ -1673,7 +1692,7 @@ Unset keys globally so that they can be repurposed.
       ;; Terminal
       "t"   '(:ignore t :which-key "vterm")
       "to"  '(vterm-other-window :which-key "vterm (other window)")
-      "tt"  '(+vterm/toggle :which-key "vterm")
+      "tt"  '(my/vterm-toggle :which-key "vterm")
       "th"  '(vterm :which-key "vterm (here)")
 
       ;; Diff Conflicts

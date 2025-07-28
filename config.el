@@ -1117,6 +1117,21 @@ Does not insert a new heading if toggling TODO to DONE."
             (revert-buffer :ignore-auto :noconfirm))))
       (message "Reverted all buffers in project: %s" project-root))))
 
+;; Vterm Toggle
+(defun my/vterm-toggle ()
+  "Toggle a full-width vterm at the bottom of the frame."
+  (interactive)
+  (let ((buffer (get-buffer "*vterm*")))
+    (if buffer
+        (if (get-buffer-window buffer)
+            (delete-window (get-buffer-window buffer))
+          (progn
+            (select-window (split-window (frame-root-window) -15 'below))
+            (switch-to-buffer buffer)))
+      (progn
+        (select-window (split-window (frame-root-window) -15 'below))
+        (vterm)))))
+
 (use-package which-key
   :ensure t
   :config
@@ -1261,8 +1276,8 @@ Does not insert a new heading if toggling TODO to DONE."
        "S-RET" #'my/org-meta-return-toggle-done
 )))
 
-(global-set-key (kbd "C-s-t") '+vterm/toggle)
-(global-set-key (kbd "C-s-n") '+vterm/here)
+(global-set-key (kbd "C-s-t") 'my/vterm-toggle)
+;; (global-set-key (kbd "C-s-n") '+vterm/here)
 
 (global-set-key (kbd "C-}" ) 'split-window-right)
 (global-set-key (kbd "C-{" ) 'split-window-below)
@@ -1390,7 +1405,7 @@ Does not insert a new heading if toggling TODO to DONE."
     ;; Terminal
     "t"   '(:ignore t :which-key "vterm")
     "to"  '(vterm-other-window :which-key "vterm (other window)")
-    "tt"  '(+vterm/toggle :which-key "vterm")
+    "tt"  '(my/vterm-toggle :which-key "vterm")
     "th"  '(vterm :which-key "vterm (here)")
 
     ;; Diff Conflicts
