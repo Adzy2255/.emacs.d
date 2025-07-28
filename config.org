@@ -587,7 +587,10 @@ Defaults to moving to first non-whitespace char."
 (use-package vertico
   :ensure t
   :init
-  (vertico-mode))
+  (vertico-mode)
+  :config
+  (require 'vertico-directory)
+  (define-key vertico-map (kbd "DEL") #'vertico-directory-delete-word))
 #+end_src
 ** Consult
 #+begin_src emacs-lisp
