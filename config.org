@@ -1732,8 +1732,10 @@ Unset keys globally so that they can be repurposed.
       ;; Workspaces
       "w"   '(:ignore t :which-key "workspace")
       "ww"  '(persp-switch :which-key "switch")
-      "wk"  '(persp-kill :which-key "kill")
-      "wl"  '(persp-load-state-from-file :which-key "load workspace session")
+      "wk"  '(delete-window :which-key "kill")
+      "wp"   '(:ignore t :which-key "Perspective")
+      "wpk"  '(persp-kill :which-key "kill")
+      "wpl"  '(persp-load-state-from-file :which-key "load workspace session")
       
       ;; Window
       "W"   '(:ignore t :which-key "Window")
