@@ -981,6 +981,9 @@ Defaults to moving to first non-whitespace char."
   (setq org-agenda-show-future-repeats nil)
   (setq org-agenda-skip-scheduled-if-not-today t)
   (setq org-agenda-skip-deadline-if-not-due t)
+  (setq org-agenda-use-tag-inheritance t)
+  (setq org-agenda-tags-column 0) ;; Align tags correctly
+  (setq org-agenda-window-setup 'current-window)
 
   ;; Disable line numbers
   (add-hook 'org-mode-hook (lambda () (display-line-numbers-mode 0)))
@@ -1228,6 +1231,22 @@ For pasting images in org file from clipboard.
 
 (add-hook 'org-mode-hook #'org-display-inline-images)
       #+end_src
+** Tempo
+#+begin_src emacs-lisp
+(require 'org-tempo)  ;; enables <s TAB and similar
+
+;; Add additional structure templates *after* org-tempo loads its defaults
+(setq org-structure-template-alist
+      (append org-structure-template-alist
+              '(("q" . "quote")
+                ("v" . "verse")
+                ("c" . "center")
+                ("l" . "latex")
+                ("h" . "html")
+                ("a" . "ascii")
+                ("i" . "index")
+                ("C" . "comment"))))
+#+end_src
 ** Theme
 *** Default faces
 #+begin_src emacs-lisp
