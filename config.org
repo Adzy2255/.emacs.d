@@ -359,6 +359,11 @@ Special handling for Dired and Magit buffers."
   ;; (global-set-key (kbd "<escape>") #'my/escape-quit)
 #+end_src
 
+** Flysplell
+#+begin_src emacs-lisp
+(add-hook 'org-mode-hook #'flyspell-mode)
+(add-hook 'prog-mode-hook #'flyspell-prog-mode)
+#+end_src
 ** Select line
 #+begin_src emacs-lisp
 (defun my/mark-line ()
