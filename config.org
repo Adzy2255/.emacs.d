@@ -930,6 +930,8 @@ Defaults to moving to first non-whitespace char."
 
   (define-key org-mode-map (kbd "RET") #'my/org-return-dwim)
 
+  (setq org-hide-emphasis-markers t)
+
   ;; WASD navigation
   (define-key org-mode-map (kbd "C-k") #'next-line)
   (define-key org-mode-map (kbd "C-i") #'previous-line) ;; Use C-i instead of imaginary [C-i-real]
