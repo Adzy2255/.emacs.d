@@ -721,24 +721,51 @@ Defaults to moving to first non-whitespace char."
 #+end_src
 ** Corfu/Cape
 #+begin_src emacs-lisp
-(use-package cape
-  :ensure t)
+  (use-package corfu
+    :ensure t
+    :hook (prog-mode . corfu-mode)
+    :init
+    (setq corfu-auto t
+          corfu-cycle t
+          corfu-preselect-first t
+          corfu-quit-no-match 'separator
+          corfu-preview-current 'insert
+          corfu-on-exact-match nil))
 
-(use-package corfu
-  :ensure t
-  :init
-  (global-corfu-mode)
-  :config
-  ;; Ensure CAPEs are loaded
-  (require 'cape)
+  ;; Optional but helpful with corfu
+  (use-package cape
+    :ensure t
+    :init
+    ;; Use `cape-dabbrev` as fallback
+    (add-to-list 'completion-at-point-functions #'cape-dabbrev))
 
-  (setq completion-at-point-functions
-        (list
-         #'cape-file
-         (cape-capf-buster #'cape-keyword)
-         #'cape-dabbrev)))
+  ;; Properly connect LSP to capf (for Corfu)
+  (defun my/lsp-mode-setup-capf ()
+    (setq-local completion-at-point-functions
+                (list (cape-capf-super
+                       #'lsp-completion-at-point
+                       #'cape-dabbrev)))) ;; Fallback
+
+  (add-hook 'lsp-completion-mode-hook #'my/lsp-mode-setup-capf)
+
+  (defun my/org-mode-capf-setup ()
+    "Enable dabbrev or other capfs in org-mode buffers."
+    (add-hook 'completion-at-point-functions #'cape-dabbrev nil t))
+
+  (add-hook 'org-mode-hook #'my/org-mode-capf-setup)
+
+(defun my/org-mode-completion-setup ()
+  "Enable CAPF-based completion in org-mode."
+  (add-hook 'completion-at-point-functions #'cape-dabbrev nil t))
+
+(add-hook 'org-mode-hook #'my/org-mode-completion-setup)
+
+(add-hook 'completion-at-point-functions #'cape-file)      ;; file paths
+(add-hook 'completion-at-point-functions #'cape-symbol)    ;; symbols
+(add-hook 'completion-at-point-functions #'cape-keyword)   ;; keywords
 #+end_src
 ** Dumb Jump
+the grey summer
 #+begin_src emacs-lisp
 (use-package dumb-jump
   :ensure t
