@@ -1507,10 +1507,10 @@ Unset keys globally so that they can be repurposed.
      [C-i-real] #'previous-line
      "C-l" #'right-char
      ;; Skip word/paragraph
-     "C-M-j" #'left-word
-     "C-M-k" #'forward-paragraph
-     "C-M-i" #'backward-paragraph
-     "C-M-l" #'right-word
+     "M-j" #'left-word
+     "M-k" #'forward-paragraph
+     "M-i" #'backward-paragraph
+     "M-l" #'right-word
      ;; Before/end line
      "C-a" #'my/toggle-bol-and-indent
      "C-e" #'my/forward-to-last-non-comment-or-eol
@@ -1703,21 +1703,51 @@ Unset keys globally so that they can be repurposed.
       "a" '(org-agenda :which-key "Agenda")
 
       ;; Bookmarks
-      "m"   '(:ignore t :which-key "Bookmarks")
-      ;; "mm"  '(consult-bookmark :which-key "consult bookmark") ; This is already - SPC <ENTER>
-      "ms"  '(bookmark-set :which-key "set bookmark")
-      "mj"  '(bookmark-jump :which-key "jump to bookmark")
-      "mm"  '(bookmark-jump :which-key "jump to bookmark")
-      "md"  '(bookmark-delete :which-key "delete bookmark")
+      "B"   '(:ignore t :which-key "Bookmarks")
+      "BS"  '(bookmark-set :which-key "set bookmark")
+      "BJ"  '(bookmark-jump :which-key "jump to bookmark")
+      "BB"  '(bookmark-jump :which-key "jump to bookmark")
+      "BD"  '(bookmark-delete :which-key "delete bookmark")
 
+      ;; Buffers
+      "b"   '(:ignore t :which-key "Buffer")
+      "bk"  '(kill-buffer :which-key "kill buffer")
+      "br"  '(my/revert-buffer-no-confirm :which-key "revert buffer")
+      "be"   '(:ignore t :which-key "Eval")
+      "bee"  '(eval-buffer :which-key "eval buffer")
+      "ber"  '(eval-region :which-key "eval region")
+      ;; "bo"  '(eval-buffer :which-key "buffer org2html")
+      "bo"  '(my/org-export-html-to-rtf-clipboard :which-key "org to email")
+      "bs"  '(switch-to-buffer :which-key "switch buffer")
+      "bb"  '(switch-to-buffer :which-key "switch buffer")
+      "bw"   '(:ignore t :which-key "Buffer Window")
+      "bwk"  '(delete-window :which-key "kill")
+
+      ;; Diff Conflicts
+      "c"   '(:ignore t :which-key "conflicts")
+      "ck"   '(smerge-keep-upper :which-key "keep upper")
+      "cu"   '(smerge-keep-upper :which-key "keep upper")
+      "ck"   '(smerge-keep-lower :which-key "keep lower")
+      "cl"   '(smerge-keep-lower :which-key "keep lower")
+      "cc"    '(smerge-keep-current :which-key "keep current")
+
+      ;; "mm"  '(consult-bookmark :which-key "consult bookmark") ; This is already - SPC <ENTER>
+      
       ;; kill
       "k"   '(:ignore t :which-key "Kill")
       "kw"  '(kill-word :which-key "kill word")
       "kbw"  '(backward-kill-word :which-key "kill backwards word")
-      "kl"  '(kill-whole-line :which-key "kill line")
+      "kk"  '(kill-whole-line :which-key "kill whole line")
+      "ke"  '(kill-line :which-key "kill line")
       ;; Export
       "E"   '(:ignore t :which-key "export")
       "Eo"  '(my/org-export-html-to-rtf-clipboard :whichorg-key "org to email")
+      
+      ;; Embark
+      "e"   '(:ignore t :which-key "embark")
+      "el"  '(embark-live  :which-key "live")
+      "eb"  '(eval-buffer  :which-key "eval buffer")
+      "er "  '(eval-region  :which-key "eval region")
 
       ;; File
       "f"   '(:ignore t :which-key "Find")
