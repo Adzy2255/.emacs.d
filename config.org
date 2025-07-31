@@ -341,6 +341,17 @@ Special handling for Dired and Magit buffers."
   (message "Function killed"))
 #+end_src
 
+*** Delete whole thing at point
+#+begin_src emacs-lisp
+(defun my/kill-symbol-at-point ()
+  "Kill the entire symbol (word with hyphens/underscores) at point."
+  (interactive)
+  (let ((bounds (bounds-of-thing-at-point 'symbol)))
+    (if bounds
+        (kill-region (car bounds) (cdr bounds))
+      (message "No symbol at point"))))
+#+end_src
+
 ** Escape
 #+begin_src emacs-lisp
   (defun my/escape-quit ()
@@ -1523,7 +1534,8 @@ Unset keys globally so that they can be repurposed.
   (general-define-key
    :keymaps 'override
      "C-w" #'kill-word
-     "C-W" #'sp-kill-word
+     "C-W" #'my/kill-symbol-at-point
+     "M-w" #'my/kill-symbol-at-point
      "C-d C-d" #'kill-line-or-region
      "C-d C-w" #'kill-word
      "C-d C-f" #'my/kill-defun
