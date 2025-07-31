@@ -1,19 +1,20 @@
 
+
 * Tangle
 #+begin_src emacs-lisp
-(require 'org)
-(require 'ob-tangle)
+  (require 'org)
+  (require 'ob-tangle)
 
-(defun my/org-babel-tangle-config ()
-  "Automatically tangle config.org on save."
-  (when (and (string-equal (buffer-file-name)
-                          (expand-file-name "config.org" user-emacs-directory))
-             (derived-mode-p 'org-mode))
-    (org-babel-tangle)))
+  (defun my/org-babel-tangle-config ()
+    "Automatically tangle config.org on save."
+    (when (and (string-equal (buffer-file-name)
+                            (expand-file-name "config.org" user-emacs-directory))
+               (derived-mode-p 'org-mode))
+      (org-babel-tangle)))
 
-(setq org-confirm-babel-evaluate nil)
+  (setq org-confirm-babel-evaluate nil)
 
-(add-hook 'after-save-hook #'my/org-babel-tangle-config)
+  (add-hook 'after-save-hook #'my/org-babel-tangle-config)
 #+end_src
 * Setup
 #+begin_src emacs-lisp
