@@ -1315,7 +1315,7 @@ For pasting images in org file from clipboard.
 
   ;; 1. Set default font globally to Source Code Pro
   (set-face-attribute 'default nil
-                      :family (my/safe-font '("Source Code Pro" "Monaco" "Monospace"))
+                      :family (my/safe-font '("Fira Code" "Monaco" "Monospace"))
                       :height 130)
 
   ;; 2. Set minibuffer prompt to Noto Sans Symbols
@@ -1327,7 +1327,7 @@ For pasting images in org file from clipboard.
   (defun my/org-setup-fonts ()
     "Set Org fonts: sans for prose/headings, monospace for code blocks."
     (let ((sans (my/safe-font '("Noto Sans Symbols" "Inter" "Source Sans Pro")))
-          (mono (my/safe-font '("Source Code Pro" "Iosevka" "Fira Code")))
+          (mono (my/safe-font '("Fira Code" "Iosevka" "Source Code Symbols")))
           (colors '("#E27E8D" "#EBBF83" "#539AFC" "#8BD49C"
                     "#ab7967" "#3dcbd6" "#82aaff" "#537f5d"))
           (sizes '(1.5 1.3 1.2 1.1 1.05 1.0 1.0 1.0)))
