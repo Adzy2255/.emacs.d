@@ -103,7 +103,8 @@
   :init
   (beacon-mode 1)
   :bind
-  ("C-s-b" . beacon-blink))
+  ("C-s-b" . beacon-blink)
+  ("s-b" . beacon-blink))
 #+end_src
 ** Dashboard
 #+begin_src emacs-lisp
